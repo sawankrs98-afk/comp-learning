@@ -1,0 +1,10 @@
+/home/saksham/dummy-comp/compositor-labs/target/debug/deps/drm_ffi-6d4bfcb3b3f04a1e.d: /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/lib.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/utils.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/gem.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/ioctl.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/mode.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/syncobj.rs
+
+/home/saksham/dummy-comp/compositor-labs/target/debug/deps/libdrm_ffi-6d4bfcb3b3f04a1e.rmeta: /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/lib.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/utils.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/gem.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/ioctl.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/mode.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/syncobj.rs
+
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/lib.rs:
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/utils.rs:
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/gem.rs:
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/ioctl.rs:
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/mode.rs:
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/syncobj.rs:

@@ -1,0 +1,8 @@
+/home/saksham/dummy-comp/rust-calls/client/target/debug/deps/shlex-69c11c7589f0c135.d: /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-2.0.1/src/lib.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-2.0.1/src/bytes.rs
+
+/home/saksham/dummy-comp/rust-calls/client/target/debug/deps/libshlex-69c11c7589f0c135.rlib: /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-2.0.1/src/lib.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-2.0.1/src/bytes.rs
+
+/home/saksham/dummy-comp/rust-calls/client/target/debug/deps/libshlex-69c11c7589f0c135.rmeta: /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-2.0.1/src/lib.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-2.0.1/src/bytes.rs
+
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-2.0.1/src/lib.rs:
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-2.0.1/src/bytes.rs:

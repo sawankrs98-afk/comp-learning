@@ -1,0 +1,8 @@
+/home/saksham/dummy-comp/compositor-labs/target/debug/deps/xkeysym-7603d9b3df798810.d: /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xkeysym-0.2.1/src/lib.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xkeysym-0.2.1/src/automatically_generated.rs
+
+/home/saksham/dummy-comp/compositor-labs/target/debug/deps/libxkeysym-7603d9b3df798810.rlib: /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xkeysym-0.2.1/src/lib.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xkeysym-0.2.1/src/automatically_generated.rs
+
+/home/saksham/dummy-comp/compositor-labs/target/debug/deps/libxkeysym-7603d9b3df798810.rmeta: /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xkeysym-0.2.1/src/lib.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xkeysym-0.2.1/src/automatically_generated.rs
+
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xkeysym-0.2.1/src/lib.rs:
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/xkeysym-0.2.1/src/automatically_generated.rs:

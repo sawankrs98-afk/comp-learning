@@ -1,0 +1,10 @@
+/home/saksham/dummy-comp/compositor-labs/target/debug/deps/wayland_protocols-5931b7994d1b4c9d.d: /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/lib.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/protocol_macro.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/ext.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/wp.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/xdg.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/xwayland.rs
+
+/home/saksham/dummy-comp/compositor-labs/target/debug/deps/libwayland_protocols-5931b7994d1b4c9d.rmeta: /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/lib.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/protocol_macro.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/ext.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/wp.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/xdg.rs /home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/xwayland.rs
+
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/lib.rs:
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/protocol_macro.rs:
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/ext.rs:
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/wp.rs:
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/xdg.rs:
+/home/saksham/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-protocols-0.32.13/src/xwayland.rs:
