@@ -8,21 +8,73 @@ use std::time::{Duration, Instant};
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, WindowEvent},
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    // this line lists the "parts" of the event we want to use.
+    // `event_loop` : lets us ask winit to do things (like exit or redraw).
+    // we removed `EventLoop` from this import because we never use that type
+    // here, and unused imports produce a compiler warning...
+    // `ControlFlow` tells winit WHEN to wake our program up again:
+    // Wait = sleep until something happens, WaitUntil = sleep until a time.
+    // we still need it for the movement timer below...
+    event_loop::{ActiveEventLoop, ControlFlow},
     keyboard::{KeyCode, PhysicalKey},
     window::{Window, WindowId},
 };
 
 
+// where the FIRST rectangle appears when the app starts...
 const RECT_START_X: f64 = 100.0;
 const RECT_START_Y: f64 = 80.0;
-const RECT_WIDTH: i64 = 120;
-const RECT_HEIGHT: i64 = 200;
+// how big every rectangle is (same for all of them for now)...
+const RECT_WIDTH: f64 = 120.0;
+const RECT_HEIGHT: f64 = 200.0;
+// each new rectangle is pushed 40 pixels down-right from the last one,
+// so when you spawn several they fan out like a deck of cards...
+const SPAWN_STEP: f64 = 40.0;
+// colours for new rectangles, one after another (RRGGBB as hex numbers).
+// `%` (remainder) cycles back to the first colour after the last one...
+const RECT_COLORS: [u32; 4] = [0x00FF0000, 0x0000CC44, 0x004477FF, 0x00FFCC00];
+
 const ARROW_TAP_STEP: f64 = 10.0;
 const KEYBOARD_SPEED: f64 = 200.0;
 const KEYBOARD_INTERVAL: Duration = Duration::from_millis(16);
 const MAX_KEYBOARD_ELAPSED: Duration = Duration::from_millis(50);
 
+
+// One rectangle that manages itself: it knows its own position, size and
+// colour. Before this struct there was ONE hard-coded rectangle spread
+// across many separate App fields; now we can have as many as we want...
+struct Rect {
+    // top-left corner inside the window. We store the raw position
+    // (not an offset from 100/80) because each rect now starts at
+    // a different place...
+    offset_x: f64,
+    offset_y: f64,
+
+    // size, same for every rect for now...
+    width: f64,
+    height: f64,
+
+    // fill colour as a 0x00RRGGBB pixel value, exactly what the
+    // framebuffer wants...
+    color: u32,
+}
+
+// "impl Rect" = functions that belong to Rect. You call them like
+// Rect::spawn(3) — no existing rect needed, so it's like a constructor...
+impl Rect {
+    // builds the n-th rectangle (0th, 1st, 2nd...). `n as f64` converts
+    // the whole number into a decimal so we can multiply by SPAWN_STEP...
+    fn spawn(n: usize) -> Self {
+        Self {
+            offset_x: RECT_START_X + SPAWN_STEP * n as f64,
+            offset_y: RECT_START_Y + SPAWN_STEP * n as f64,
+            width: RECT_WIDTH,
+            height: RECT_HEIGHT,
+            // n % 4 gives 0,1,2,3,0,1,2,3... so colours repeat forever...
+            color: RECT_COLORS[n % RECT_COLORS.len()],
+        }
+    }
+}
 
 #[derive(Default)]
 struct App {
@@ -45,16 +97,24 @@ struct App {
     // added the pointer impl
     pointer: Pointer,
 
+    // ALL the rectangles, stored in a Vec (a growable list).
+    // THE ORDER IS THE STACKING: index 0 is drawn first (bottom of the
+    // stack), the LAST index is drawn last (on top of everything).
+    // "raising" a rectangle to the front = moving it to the end of the Vec...
+    rects: Vec<Rect>,
+
+    // which rectangle has keyboard focus, as its index into `rects`.
+    // Option means "maybe none": we start with no focus at all, and a
+    // background click clears it. We NEVER use .unwrap() here, so a
+    // missing focus can never crash the program...
+    focused: Option<usize>,
+
     // so like when we drag... this will be true
     dragging: bool,
 
     // when dragging is true then the cursor will move that will be the offset...
     drag_offset_x: f64,
     drag_offset_y: f64,
-
-    // when the cusor has offset we will calculate the rectangle offset and it will be used when the rectangle is redrawn...
-    rect_offset_x: f64,
-    rect_offset_y: f64,
 
     // the keyboard class which already has Keybaord...
     keyboard: Keyboard,
@@ -137,16 +197,50 @@ impl ApplicationHandler for App {
 
                 let width = size.width as usize;
 
-                let rect_x = (100.0 + self.rect_offset_x) as usize;
-                let rect_y = (80.0 + self.rect_offset_y) as usize;
-                let rect_height = 200usize;
-                let rect_width = 120usize;
+                // draw EVERY rectangle, first to last. Because the last one
+                // paints its pixels last, it covers the ones below it —
+                // that IS the stacking order, no extra bookkeeping needed...
+                for (i, rect) in self.rects.iter().enumerate() {
+                    // f64 -> usize: pixel coordinates must be whole numbers...
+                    let rect_x = rect.offset_x as usize;
+                    let rect_y = rect.offset_y as usize;
+                    let rect_width = rect.width as usize;
+                    let rect_height = rect.height as usize;
 
-                // visit every row of the rectangle we have to form...
-                for y in rect_y..(rect_y + rect_height) {
-                    for x in rect_x..(rect_x + rect_width) {
-                        let index = y * width + x;
-                        buffer[index] = 0x00FF0000;
+                    // fill the rectangle row by row, like before...
+                    for y in rect_y..(rect_y + rect_height) {
+                        for x in rect_x..(rect_x + rect_width) {
+                            // framebuffer is one flat list of pixels:
+                            // row y, column x lives at position y*width + x...
+                            let index = y * width + x;
+                            // bounds check: a rect dragged partly off the
+                            // window would otherwise crash here (index out
+                            // of range). `if` + skip instead of .unwrap()...
+                            if index < buffer.len() {
+                                buffer[index] = rect.color;
+                            }
+                        }
+                    }
+
+                    // draw a 1-pixel WHITE outline on the focused rectangle
+                    // so you can SEE which one the keyboard controls...
+                    if Some(i) == self.focused {
+                        for y in rect_y..(rect_y + rect_height) {
+                            for x in rect_x..(rect_x + rect_width) {
+                                // a pixel is on the outline if it sits on any
+                                // of the four edges of the rectangle...
+                                let on_edge = x == rect_x
+                                    || x == rect_x + rect_width - 1
+                                    || y == rect_y
+                                    || y == rect_y + rect_height - 1;
+                                if on_edge {
+                                    let index = y * width + x;
+                                    if index < buffer.len() {
+                                        buffer[index] = 0x00FFFFFF;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -175,8 +269,22 @@ impl ApplicationHandler for App {
 
                 // also if the window is being dragged then we need to redraw it also when it moves with the cursor...
                 if self.dragging {
-                    self.rect_offset_x = position.x - self.drag_offset_x - 100.0;
-                    self.rect_offset_y = position.y - self.drag_offset_y - 80.0;
+                    // COPY the grab offsets into plain local variables FIRST.
+                    // Why? `focused_rect_mut()` borrows `self` mutably, and
+                    // Rust forbids touching `self.drag_offset_x` through
+                    // `self` while that borrow is alive (error E0503).
+                    // Two short copies before the borrow = no overlap...
+                    let grab_x = self.drag_offset_x;
+                    let grab_y = self.drag_offset_y;
+
+                    // run the body only if something is focused;
+                    // `if let` = "if the Option is Some, give me the value"...
+                    if let Some(rect) = self.focused_rect_mut() {
+                        // the rect jumps to where it was grabbed: cursor
+                        // position minus the grab point inside the rect...
+                        rect.offset_x = position.x - grab_x;
+                        rect.offset_y = position.y - grab_y;
+                    }
                 }
 
                 if let Some(window) = &self.window {
@@ -204,26 +312,47 @@ impl ApplicationHandler for App {
                     );
 
                     if pointer_button == PointerButton::Left && pressed {
-                        let rect_x = 100.0 + self.rect_offset_x;
-                        let rect_y = 80.0 + self.rect_offset_y;
+                        // HIT-TEST: which rectangle is under the cursor?
+                        // `rposition` searches the Vec BACKWARDS (from the
+                        // last index to 0). That matters: when two rectangles
+                        // overlap, the one later in the Vec is drawn on top,
+                        // so a click must land on IT, not the hidden one...
+                        let hit = self.rects.iter().rposition(|rect| {
+                            // the same four-way check as before, but per rect.
+                            // `rect` here is `&Rect`; the comparison works
+                            // because the closure receives each element...
+                            self.pointer.x >= rect.offset_x
+                                && self.pointer.x < rect.offset_x + rect.width
+                                && self.pointer.y >= rect.offset_y
+                                && self.pointer.y < rect.offset_y + rect.height
+                        });
 
-                        let rect_width = 120.0;
-                        let rect_height = 200.0;
+                        // `match` on the Option<usize> we just got...
+                        match hit {
+                            Some(i) => {
+                                // RAISE TO TOP: remove() takes the rect out of
+                                // the Vec (shifting the rest left) and returns
+                                // it; push() puts it back at the END = on top.
+                                // Classic way to reorder a stack in Rust...
+                                let rect = self.rects.remove(i);
+                                self.rects.push(rect);
 
-                        let inside_rectangle = self.pointer.x >= rect_x
-                            && self.pointer.x < rect_x + rect_width
-                            && self.pointer.y >= rect_y
-                            && self.pointer.y < rect_y + rect_height;
+                                // the raised rect is now the last element, so
+                                // its new index is len() - 1. Focus follows it...
+                                self.focused = Some(self.rects.len() - 1);
 
-                        if inside_rectangle {
-                            self.dragging = true;
+                                self.dragging = true;
 
-                            self.drag_offset_x = self.pointer.x - rect_x;
-                            self.drag_offset_y = self.pointer.y - rect_y;
-
-                            if let Some(window) = &self.window {
-                                window.request_redraw();
+                                // remember WHERE inside the rect you grabbed
+                                // it, so it doesn't snap its corner to the
+                                // cursor. We look it up by that same index...
+                                let rect = &self.rects[self.rects.len() - 1];
+                                self.drag_offset_x = self.pointer.x - rect.offset_x;
+                                self.drag_offset_y = self.pointer.y - rect.offset_y;
                             }
+                            // clicked on empty background: no rectangle
+                            // should listen to the keyboard any more...
+                            None => self.focused = None,
                         }
                     }
 
@@ -270,6 +399,16 @@ impl ApplicationHandler for App {
                                 needs_redraw = self.move_with_keyboard(0.0, ARROW_TAP_STEP);
                             }
                             KeyCode::Space => {
+                                // SPAWN a new rectangle: len() is how many we
+                                // have, which is also the index the new one
+                                // will get — so spawn(len) staggers it down-
+                                // right from all the previous ones...
+                                self.rects.push(Rect::spawn(self.rects.len()));
+
+                                // the new rect sits at the END of the Vec,
+                                // which means ON TOP of the stack. Focus it
+                                // right away so arrows move the newest one...
+                                self.focused = Some(self.rects.len() - 1);
                                 needs_redraw = true;
                             }
                             KeyCode::Escape => {
@@ -352,27 +491,59 @@ impl ApplicationHandler for App {
 }
 
 impl App {
+    // Gives a MUTABLE borrow (`&mut` = "you may change it") of the rectangle
+    // that currently has focus. Returns Option: Some(&mut Rect) when focused,
+    // None when nothing is focused. The `?` at the end means: if
+    // self.focused is None, return None from THIS function right away;
+    // otherwise hand over the usize index it contained...
+    fn focused_rect_mut(&mut self) -> Option<&mut Rect> {
+        // get_mut(index) is the SAFE way to index a Vec: it returns an Option
+        // instead of crashing when the index is out of range...
+        self.rects.get_mut(self.focused?)
+    }
+
     // Both taps and holds use this so keyboard movement stays inside the buffer
     // bounds that the existing rectangle drawing loop expects.
     fn move_with_keyboard(&mut self, dx: f64, dy: f64) -> bool {
+        // `let Some(window) = ... else { return false };` = "unwraps" the
+        // Option<Arc<Window>>: if there is no window yet, we return early;
+        // otherwise `window` is the real value for the rest of the function...
         let Some(window) = &self.window else {
             return false;
         };
         let size = window.inner_size();
-        let max_x = f64::from(size.width) - RECT_WIDTH as f64;
-        let max_y = f64::from(size.height) - RECT_HEIGHT as f64;
-        if self.dragging || max_x < 0.0 || max_y < 0.0 {
+
+        // Copy the dragging flag into a local BEFORE the mutable borrow below.
+        // Rust's borrow rules: while `rect` holds a &mut borrow of self, we
+        // cannot ALSO read self.dragging. Copying first keeps the borrows
+        // from overlapping (this is exactly error E0503 otherwise)...
+        let dragging = self.dragging;
+
+        // keyboard movement goes to the FOCUSED rectangle only; when nothing
+        // is focused there is nothing to move, so return "did not move"...
+        let Some(rect) = self.focused_rect_mut() else {
+            return false;
+        };
+
+        // clamp bounds use THIS rectangle's own size, so every rectangle
+        // stops exactly at the window edge whatever its dimensions are...
+        let max_x = f64::from(size.width) - rect.width;
+        let max_y = f64::from(size.height) - rect.height;
+        if dragging || max_x < 0.0 || max_y < 0.0 {
             return false;
         }
 
-        // Convert offsets to window coordinates for clamping, then store offsets again.
-        let x = (RECT_START_X + self.rect_offset_x + dx).clamp(0.0, max_x);
-        let y = (RECT_START_Y + self.rect_offset_y + dy).clamp(0.0, max_y);
-        let offset_x = x - RECT_START_X;
-        let offset_y = y - RECT_START_Y;
-        let moved = offset_x != self.rect_offset_x || offset_y != self.rect_offset_y;
-        self.rect_offset_x = offset_x;
-        self.rect_offset_y = offset_y;
+        // Positions are stored directly now (no RECT_START_X base to add and
+        // subtract). clamp() keeps the new value inside [0, max], so a held
+        // arrow can never push the rectangle off-screen...
+        let x = (rect.offset_x + dx).clamp(0.0, max_x);
+        let y = (rect.offset_y + dy).clamp(0.0, max_y);
+
+        // Only report "moved" when a pixel actually changed, so the caller
+        // does not waste time redrawing on a blocked arrow key...
+        let moved = x != rect.offset_x || y != rect.offset_y;
+        rect.offset_x = x;
+        rect.offset_y = y;
         moved
     }
 }
@@ -389,6 +560,15 @@ pub fn run() {
     let event_loop = winit::event_loop::EventLoop::new().unwrap();
 
     let mut app = App::default();
+
+    // Seed the FIRST rectangle so the app looks the same as before on startup.
+    // Rect::spawn(0) = the 0th rectangle: starts at RECT_START_X/Y, red.
+    // push() adds it to the END of the Vec = bottom of the (one-item) stack...
+    app.rects.push(Rect::spawn(0));
+
+    // Focus it from the start so the arrow keys work immediately, like in
+    // Round 3. Some(0) = "index 0 has focus"...
+    app.focused = Some(0);
 
     event_loop.run_app(&mut app).unwrap();
 }

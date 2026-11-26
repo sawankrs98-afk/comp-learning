@@ -1,0 +1,8 @@
+# Local environment settings may contain private values.
+.env
+.env.*
+!.env.example
+
+# Rust build output is generated locally.
+**/target/
+

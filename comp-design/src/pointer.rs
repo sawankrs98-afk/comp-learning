@@ -34,10 +34,10 @@ impl PointerButtons {
 }
 
 impl Pointer {
-    // creates a pointer at the initial position (0,0)...
-    pub fn new() -> Self {
-        Self::default()
-    }
+    // NOTE: we removed a `pub fn new()` here. It only called `Self::default()`
+    // and nobody ever used it, so the compiler warned us. Rust gives every
+    // struct a `Default` implementation we declared with `#[derive(Default)]`,
+    // so `Pointer::default()` already does this job — no custom `new` needed...
 
     // now we need to update the pointer position
     // some other event handlers see the mouse moving and give its current location

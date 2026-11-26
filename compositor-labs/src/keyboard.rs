@@ -18,11 +18,10 @@ impl Keyboard {
         }
     }
 
-    // shared borrow is enough as we just have to check the thing 
-    pub fn is_pressed(&self, key : KeyCode) -> bool {
+    pub fn is_pressed(&mut self, key : KeyCode) -> bool {
         self.pressed_keys.contains(&key)
     }
-    // when the window loses focus
+
     pub fn clear(&mut self) {
         self.pressed_keys.clear();
     }
