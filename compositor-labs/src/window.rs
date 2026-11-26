@@ -25,12 +25,49 @@ const KEYBOARD_SPEED: f64 = 200.0;
 const KEYBOARD_INTERVAL: Duration = Duration::from_millis(16);
 const MAX_KEYBOARD_ELAPSED: Duration = Duration::from_millis(50);
 
+const RECT_START_X: f64 = 100.0;
+const RECT_START_Y: f64 = 80.0;
+// how big every rectangle is (same for all of them for now)...
+const RECT_WIDTH: f64 = 120.0;
+const RECT_HEIGHT: f64 = 200.0;
+// each new rectangle is pushed 40 pixels down-right from the last one,
+// so when you spawn several they fan out like a deck of cards...
+const SPAWN_STEP: f64 = 40.0;
+// colours for new rectangles, one after another (RRGGBB as hex numbers).
+// `%` (remainder) cycles back to the first colour after the last one...
+const RECT_COLORS: [u32; 4] = [0x00FF0000, 0x0000CC44, 0x004477FF, 0x00FFCC00];
+
+const ARROW_TAP_STEP: f64 = 10.0;
+// const KEYBOARD_SPEED: f64 = 200.0;
+// const KEYBOARD_INTERVAL: Duration = Duration::from_millis(16);
+// const MAX_KEYBOARD_ELAPSED: Duration = Duration::from_millis(50);
 
 
 
+// trying multi rectangle setups...
+// this is what a rect (instead of a window) looks like 
+struct Rect {
+    offset_x : f64,
+    offset_y : f64,
 
+    width : f64,
+    height : f64,
 
+    color : u32,
+}
 
+// function that belong to any Rect
+impl Rect {
+    fn spawn(n : usize) -> Self {
+        Self {
+            offset_x : RECT_START_X + SPAWN_STEP * n as f64,
+            offset_y : RECT_START_Y + SPAWN_STEP * n as f64,
+            width : RECT_WIDTH,
+            height : RECT_HEIGHT,
+            color : RECT_COLORS[n % RECT_COLORS.len()],
+        }
+    }
+}
 
 #[derive(Default)]
 struct App {
@@ -50,6 +87,14 @@ struct App {
 
     // added the pointer impl
     pointer: Pointer,
+
+    // all the rectangles
+    // rectangles in the front are the first ones to spawn
+    // if a window is raised then the rect is transferred to the front
+    rects : Vec<Rect>,
+
+    // the rectangle with the current focus..
+    focused : Option<usize>,
 
     // so like when we drag... this will be true
     dragging: bool,
@@ -150,16 +195,44 @@ impl ApplicationHandler for App {
 
                 let width = size.width as usize;
 
-                let rect_x = (100.0 + self.rect_offset_x) as usize;
-                let rect_y = (80.0 + self.rect_offset_y) as usize;
-                let rect_height = 200usize;
-                let rect_width = 120usize;
+               for (i, rect) in self.rects.iter().enumerate() {
+                    let rect_x = rect.offset_x as usize;
+                    let rect_y = rect.offset_y as usize;
+                    let rect_width = rect.width as usize;
+                    let rect_height = rect.height as usize;
 
-                // visit every row of the rectangle we have to form...
-                for y in rect_y..(rect_y + rect_height) {
-                    for x in rect_x..(rect_x + rect_width) {
-                        let index = y * width + x;
-                        buffer[index] = 0x00FF0000;
+                    for y in rect_y..(rect_y + rect_height) {
+                        for x in rect_x..(rect_x + rect_width) {
+                            // frambuffer is one flat list of pixels
+                            let index = y * width + x;
+                            // this is the whole window buffer
+                            // we just draw the rectangle colours
+                            // we fill only if inside the bounds
+                            // and dont unwrap becuase 
+                            // unwrap -> if nothing then panics and gives a 
+                            // erro is result<T> else just panics if a Option<T>
+                            if(index < buffer.len()) {
+                                buffer[index] = rect.color;
+                            }
+                        }
+                    }
+
+                    // draw a 1 pixel white outline on the focused rectangle
+                    if Some(i) == self.focused {
+                        for y in rect_y..(rect_y + rect_height) {
+                            for x in rect_x..(rect_x + rect_width) {
+                                let on_edge = x == rect_x
+                                    || x == rect_x + rect_width - 1
+                                    || y == rect_y
+                                    || y == rect_y + rect_height - 1;
+                                if on_edge {
+                                    let index = y * width + x;
+                                    if index < buffer.len() {
+                                        buffer[index] = 0x00FFFFFF;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -188,8 +261,19 @@ impl ApplicationHandler for App {
 
                 // also if the window is being dragged then we need to redraw it also when it moves with the cursor...
                 if self.dragging {
-                    self.rect_offset_x = position.x - self.drag_offset_x - 100.0;
-                    self.rect_offset_y = position.y - self.drag_offset_y - 80.0;
+                    // we take the immutable ref and store it here 
+                    // becuase when we call the other function it will give Error.
+                    let grab_x = self.drag_offset_x;
+                    let grab_y = self.drag_offset_y;
+                    
+                    // here we get the mutable ref to rect
+                    // focused_rect_mut takes &mut self 
+                    // so even if it gives the Rect
+                    // the lock is applied on all the self 
+                    if let Some(rect) = self.focused_rect_mut() {
+                        rect.offset_x = position.x - grab_x;
+                        rect.offset_y = position.y - grab_y;
+                    }
                 }
 
                 if let Some(window) = &self.window {
@@ -217,26 +301,35 @@ impl ApplicationHandler for App {
                     );
 
                     if pointer_button == PointerButton::Left && pressed {
-                        let rect_x = 100.0 + self.rect_offset_x;
-                        let rect_y = 80.0 + self.rect_offset_y;
+                        // now we gotta find which rect is below the cursor.
+                        // x and y is the current coords of mouse pointer
+                        // the last rectangle in the Vec<Rect> which has its 
+                        // body in that region will be chosen
 
-                        let rect_width = 120.0;
-                        let rect_height = 200.0;
+                        let hit = self.rects.iter().rposition(|rect| {
+                            // the same four-way check as before, but per rect.
+                            // `rect` here is `&Rect`; the comparison works
+                            // because the closure receives each element...
+                            self.pointer.x >= rect.offset_x
+                                && self.pointer.x < rect.offset_x + rect.width
+                                && self.pointer.y >= rect.offset_y
+                                && self.pointer.y < rect.offset_y + rect.height
+                        });
 
-                        let inside_rectangle = self.pointer.x >= rect_x
-                            && self.pointer.x < rect_x + rect_width
-                            && self.pointer.y >= rect_y
-                            && self.pointer.y < rect_y + rect_height;
+                        match hit {
+                            Some(i) => {
+                                let rect = self.rects.remove(i);
+                                self.rects.push(rect);
 
-                        if inside_rectangle {
-                            self.dragging = true;
+                                self.focused = Some(self.rects.len() - 1);
+                                self.dragging = true;
 
-                            self.drag_offset_x = self.pointer.x - rect_x;
-                            self.drag_offset_y = self.pointer.y - rect_y;
 
-                            if let Some(window) = &self.window {
-                                window.request_redraw();
+                                let rect = &self.rects[self.rects.len()-1];
+                                self.drag_offset_x = self.pointer.x - rect.offset_x;
+                                self.drag_offset_y = self.pointer.y - rect.offset_y;
                             }
+                            None => self.focused = None,
                         }
                     }
 
@@ -250,11 +343,17 @@ impl ApplicationHandler for App {
                 }
             }
 
-            WindowEvent::KeyboardInput { event, .. } => {
+            WindowEvent::KeyboardInput { event, is_synthetic, .. } => {
                 // uses physical code to see the physical key...
                 if let PhysicalKey::Code(code) = event.physical_key {
                     // to see whether the key is pressed or no...
                     let pressed = event.state == ElementState::Pressed;
+
+                    // The movement timer handles repeats. A synthetic press on
+                    // focus gain should also wait for a fresh press.
+                    if pressed && (event.repeat || is_synthetic) {
+                        return;
+                    }
 
                     // set the pressed key to hash
                     self.keyboard.set_key(code, pressed);
@@ -265,22 +364,28 @@ impl ApplicationHandler for App {
 
                         match code {
                             KeyCode::ArrowLeft => {
-                                self.rect_offset_x -= 10.0;
-                                needs_redraw = true;
+                                needs_redraw = self.move_with_keyboard(-ARROW_TAP_STEP, 0.0);
                             }
                             KeyCode::ArrowRight => {
-                                self.rect_offset_x += 10.0;
-                                needs_redraw = true;
+                                needs_redraw = self.move_with_keyboard(ARROW_TAP_STEP, 0.0);
                             }
                             KeyCode::ArrowUp => {
-                                self.rect_offset_y -= 10.0;
-                                needs_redraw = true;
+                                needs_redraw = self.move_with_keyboard(0.0, -ARROW_TAP_STEP);
                             }
                             KeyCode::ArrowDown => {
-                                self.rect_offset_y += 10.0;
-                                needs_redraw = true;
+                                needs_redraw = self.move_with_keyboard(0.0, ARROW_TAP_STEP);
                             }
                             KeyCode::Space => {
+                                // SPAWN a new rectangle: len() is how many we
+                                // have, which is also the index the new one
+                                // will get — so spawn(len) staggers it down-
+                                // right from all the previous ones...
+                                self.rects.push(Rect::spawn(self.rects.len()));
+
+                                // the new rect sits at the END of the Vec,
+                                // which means ON TOP of the stack. Focus it
+                                // right away so arrows move the newest one...
+                                self.focused = Some(self.rects.len() - 1);
                                 needs_redraw = true;
                             }
                             KeyCode::Escape => {
@@ -366,39 +471,40 @@ impl ApplicationHandler for App {
 }
 
 impl App {
+    
+    // to give the Rect a mutable borrow we are making a function
+    // returns Option<&mut Rect> can be rect ref or Nothing...
+    fn focused_rect_mut(&mut self) -> Option<&mut Rect> {
+        // return the index or just propogate the error.
+        return self.rects.get_mut(self.focused?);
+    }
+
+
     // Move the rectangle by the requested distance, stopping at the window edge.
     // The bool tells the event handler whether it needs to redraw the window.
     fn move_with_keyboard(&mut self, dx: f64, dy: f64) -> bool {
-        let Some(window) = &self.window else {
+        let Some(size) = self.window.as_ref().map(|w| w.inner_size() ) else {
             return false;
         };
+        let Some(rect) = self.focused_rect_mut() else {
+            return false;
+        };
+        let max_x = f64::from(size.width) - rect.width;
+        let max_y = f64::from(size.height) -rect.height;
 
-        let size = window.inner_size();
-        let max_x = f64::from(size.width) - 120.0;
-        let max_y = f64::from(size.height) - 200.0;
-
-        if self.dragging || max_x < 0.0 || max_y < 0.0 {
+        if max_x < 0.0 || max_y < 0.0 {
             return false;
         }
 
-        // Clamp the proposed top-left position so all rectangle pixels stay in
-        // the existing drawing buffer.
-        let x = (100.0 + self.rect_offset_x + dx).clamp(0.0, max_x);
-        let y = (80.0 + self.rect_offset_y + dy).clamp(0.0, max_y);
-        let new_offset_x = x - 100.0;
-        let new_offset_y = y - 80.0;
-        let moved = new_offset_x != self.rect_offset_x || new_offset_y != self.rect_offset_y;
+        let old_x = rect.offset_x;
+        let old_y = rect.offset_y;
 
-        self.rect_offset_x = new_offset_x;
-        self.rect_offset_y = new_offset_y;
-        moved
+        rect.offset_x = (rect.offset_x + dx).clamp(0.0, max_x);
+        rect.offset_y = (rect.offset_y + dy).clamp(0.0, max_y);
+ 
+        return old_x != rect.offset_x || old_y != rect.offset_y;
     }
 }
-
-
-
-
-
 
 
 
@@ -410,16 +516,6 @@ pub fn run() {
 
     event_loop.run_app(&mut app).unwrap();
 }
-
-
-
-
-
-
-
-
-
-
 
 
 // Draws a simple, high-contrast crosshair cursor.

@@ -199,7 +199,7 @@ impl ApplicationHandler for App {
 
                 // draw EVERY rectangle, first to last. Because the last one
                 // paints its pixels last, it covers the ones below it —
-                // that IS the stacking order, no extra bookkeeping needed...
+                 // that IS the stacking order, no extra bookkeeping needed...
                 for (i, rect) in self.rects.iter().enumerate() {
                     // f64 -> usize: pixel coordinates must be whole numbers...
                     let rect_x = rect.offset_x as usize;
@@ -524,7 +524,7 @@ impl App {
         let Some(rect) = self.focused_rect_mut() else {
             return false;
         };
-
+        
         // clamp bounds use THIS rectangle's own size, so every rectangle
         // stops exactly at the window edge whatever its dimensions are...
         let max_x = f64::from(size.width) - rect.width;
@@ -604,6 +604,7 @@ fn draw_cursor(buffer: &mut [u32], width: usize, height: usize, cursor_x: i32, c
     // Draw the black outline first.
     for offset in -8..=8 {
         draw_pixel(cursor_x + offset, cursor_y, 0x00000000);
+
         draw_pixel(cursor_x, cursor_y + offset, 0x00000000);
     }
 
