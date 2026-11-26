@@ -1,32 +1,56 @@
-// all the things to build a window...
+use crate::keyboard::Keyboard;
+use crate::pointer::{Pointer, PointerButton};
 use softbuffer::{Context, Surface};
-use std::{num::NonZeroU32, option};
+use std::num::NonZeroU32;
+// this is the library for the synchronization...
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use winit::{
     application::ApplicationHandler,
-    event::WindowEvent,
-    event_loop::{self, ActiveEventLoop, EventLoop},
-    keyboard::PhysicalKey,
-    window::{self, Window, WindowId},
+    event::{ElementState, WindowEvent},
+    event_loop::{ActiveEventLoop, ControlFlow},
+    keyboard::{KeyCode, PhysicalKey},
+    window::{Window, WindowId},
 };
 
-// for the pointer movements and things
-use crate::pointer::{self, Pointer, PointerButton};
-use winit::event::ElementState;
 
-// for the key states and presses...
-use crate::keyboard::Keyboard;
-use winit::keyboard::KeyCode;
-
-// imports for the time
-use std::time::{Duration, Instant};
-use winit::event_loop::ControlFlow;
-
-
-
-
-
+// first rectangle starts here; later ones are staggered so all stay visible...
+const RECT_START_X: f64 = 100.0;
+const RECT_START_Y: f64 = 80.0;
+// each newly spawned rectangle is offset by this much from the previous one...
+const SPAWN_STEP: f64 = 40.0;
+const RECT_WIDTH: f64 = 120.0;
+const RECT_HEIGHT: f64 = 200.0;
+// colours cycled through by newly spawned rectangles...
+const RECT_COLORS: [u32; 4] = [0x00FF0000, 0x0000CC44, 0x004477FF, 0x00FFCC00];
+const ARROW_TAP_STEP: f64 = 10.0;
+const KEYBOARD_SPEED: f64 = 200.0;
+const KEYBOARD_INTERVAL: Duration = Duration::from_millis(16);
+const MAX_KEYBOARD_ELAPSED: Duration = Duration::from_millis(50);
 
 
+// one independently managed rectangle: its own position offset, size and
+// colour. Vec order in App is the stacking order: last = drawn on top...
+struct Rect {
+    offset_x: f64,
+    offset_y: f64,
+    width: f64,
+    height: f64,
+    color: u32,
+}
+
+impl Rect {
+    // spawn the n-th rectangle, staggered and coloured so it is distinguishable...
+    fn spawn(n: usize) -> Self {
+        Self {
+            offset_x: RECT_START_X + SPAWN_STEP * n as f64,
+            offset_y: RECT_START_Y + SPAWN_STEP * n as f64,
+            width: RECT_WIDTH,
+            height: RECT_HEIGHT,
+            color: RECT_COLORS[n % RECT_COLORS.len()],
+        }
+    }
+}
 
 #[derive(Default)]
 struct App {
@@ -36,16 +60,24 @@ struct App {
     // both the context and the surface needs to keep the window alive
     // so we use Arch because it keeps the window alive
     // Arc lets us share the window object without actually transferring the window object...
-    window: Option<std::sync::Arc<Window>>,
+    // so kind of lets both softbuffer and the App use the same window without transferring the object
+    
+    window: Option<Arc<Window>>,
 
     // stores softbuffering connection to the windowing system...
-    context: Option<Context<std::sync::Arc<Window>>>,
+    context: Option<Context<Arc<Window>>>,
 
     // storing the drawable surface used to present pixels...
-    surface: Option<Surface<std::sync::Arc<Window>, std::sync::Arc<Window>>>,
+    surface: Option<Surface<Arc<Window>, Arc<Window>>>,
 
     // added the pointer impl
     pointer: Pointer,
+
+    // all rectangles, back to front: the last one is drawn on top...
+    rects: Vec<Rect>,
+
+    // index into rects of the rectangle that owns keyboard input and dragging...
+    focused: Option<usize>,
 
     // so like when we drag... this will be true
     dragging: bool,
@@ -54,22 +86,11 @@ struct App {
     drag_offset_x: f64,
     drag_offset_y: f64,
 
-    // when the cusor has offset we will calculate the rectangle offset and it will be used when the rectangle is redrawn...
-    rect_offset_x: f64,
-    rect_offset_y: f64,
-
     // the keyboard class which already has Keybaord...
     keyboard: Keyboard,
 
     last_keyboard_update : Option<Instant>,
 }
-
-
-
-
-
-
-
 
 
 // winit calls this when window event happens...
@@ -84,7 +105,7 @@ impl ApplicationHandler for App {
                 .with_inner_size(winit::dpi::LogicalSize::new(640.0, 400.0));
 
             // asking winit to create the actual window
-            let window = std::sync::Arc::new(event_loop.create_window(attributes).unwrap());
+            let window = Arc::new(event_loop.create_window(attributes).unwrap());
             window.set_cursor_visible(false);
 
             // init softBuffer using the windows display connection...
@@ -146,16 +167,40 @@ impl ApplicationHandler for App {
 
                 let width = size.width as usize;
 
-                let rect_x = (100.0 + self.rect_offset_x) as usize;
-                let rect_y = (80.0 + self.rect_offset_y) as usize;
-                let rect_height = 200usize;
-                let rect_width = 120usize;
+                // draw every rectangle back to front so the last one stacks on top...
+                for (i, rect) in self.rects.iter().enumerate() {
+                    let rect_x = rect.offset_x as usize;
+                    let rect_y = rect.offset_y as usize;
+                    let rect_width = rect.width as usize;
+                    let rect_height = rect.height as usize;
 
-                // visit every row of the rectangle we have to form...
-                for y in rect_y..(rect_y + rect_height) {
-                    for x in rect_x..(rect_x + rect_width) {
-                        let index = y * width + x;
-                        buffer[index] = 0x00FF0000;
+                    // visit every row of the rectangle we have to form...
+                    for y in rect_y..(rect_y + rect_height) {
+                        for x in rect_x..(rect_x + rect_width) {
+                            let index = y * width + x;
+                            // bounds check: rectangles may be nudged partly off-screen...
+                            if index < buffer.len() {
+                                buffer[index] = rect.color;
+                            }
+                        }
+                    }
+
+                    // outline the focused rectangle so focus is visible...
+                    if Some(i) == self.focused {
+                        for y in rect_y..(rect_y + rect_height) {
+                            for x in rect_x..(rect_x + rect_width) {
+                                let on_edge = x == rect_x
+                                    || x == rect_x + rect_width - 1
+                                    || y == rect_y
+                                    || y == rect_y + rect_height - 1;
+                                if on_edge {
+                                    let index = y * width + x;
+                                    if index < buffer.len() {
+                                        buffer[index] = 0x00FFFFFF;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -184,8 +229,11 @@ impl ApplicationHandler for App {
 
                 // also if the window is being dragged then we need to redraw it also when it moves with the cursor...
                 if self.dragging {
-                    self.rect_offset_x = position.x - self.drag_offset_x - 100.0;
-                    self.rect_offset_y = position.y - self.drag_offset_y - 80.0;
+                    if let Some(rect) = self.focused_rect_mut() {
+                        // the focused rectangle follows the cursor minus the grab offset...
+                        rect.offset_x = position.x - self.drag_offset_x;
+                        rect.offset_y = position.y - self.drag_offset_y;
+                    }
                 }
 
                 if let Some(window) = &self.window {
@@ -213,26 +261,29 @@ impl ApplicationHandler for App {
                     );
 
                     if pointer_button == PointerButton::Left && pressed {
-                        let rect_x = 100.0 + self.rect_offset_x;
-                        let rect_y = 80.0 + self.rect_offset_y;
+                        // hit-test from the top of the stack down so clicks land
+                        // on the topmost rectangle under the cursor...
+                        let hit = self.rects.iter().rposition(|rect| {
+                            self.pointer.x >= rect.offset_x
+                                && self.pointer.x < rect.offset_x + rect.width
+                                && self.pointer.y >= rect.offset_y
+                                && self.pointer.y < rect.offset_y + rect.height
+                        });
 
-                        let rect_width = 120.0;
-                        let rect_height = 200.0;
+                        match hit {
+                            Some(i) => {
+                                // focus the clicked rectangle and raise it to the top...
+                                let rect = self.rects.remove(i);
+                                self.rects.push(rect);
+                                self.focused = Some(self.rects.len() - 1);
 
-                        let inside_rectangle = self.pointer.x >= rect_x
-                            && self.pointer.x < rect_x + rect_width
-                            && self.pointer.y >= rect_y
-                            && self.pointer.y < rect_y + rect_height;
-
-                        if inside_rectangle {
-                            self.dragging = true;
-
-                            self.drag_offset_x = self.pointer.x - rect_x;
-                            self.drag_offset_y = self.pointer.y - rect_y;
-
-                            if let Some(window) = &self.window {
-                                window.request_redraw();
+                                self.dragging = true;
+                                let rect = &self.rects[self.rects.len() - 1];
+                                self.drag_offset_x = self.pointer.x - rect.offset_x;
+                                self.drag_offset_y = self.pointer.y - rect.offset_y;
                             }
+                            // clicking empty space clears the focus...
+                            None => self.focused = None,
                         }
                     }
 
@@ -246,17 +297,21 @@ impl ApplicationHandler for App {
                 }
             }
 
-            WindowEvent::KeyboardInput { event, .. } => {
+            WindowEvent::KeyboardInput { event, is_synthetic, .. } => {
                 // uses physical code to see the physical key...
                 if let PhysicalKey::Code(code) = event.physical_key {
                     // to see whether the key is pressed or no...
                     let pressed = event.state == ElementState::Pressed;
 
+                    if pressed && (event.repeat || is_synthetic) {
+                        return;
+                    }
+
                     // set the pressed key to hash
                     self.keyboard.set_key(code, pressed);
 
                     // perform the action only on the initial key press...
-                    if pressed  {
+                    if pressed   {
                         let mut needs_redraw = false;
 
                         match code {
@@ -302,7 +357,7 @@ impl ApplicationHandler for App {
             WindowEvent::Focused(false) => {
                 // clear all the keys for this specific window...
                 self.keyboard.clear();
-
+                self.last_keyboard_update = None;
                 // stop dragging as the focus is now lost...
                 self.dragging = false;
             }
@@ -310,11 +365,89 @@ impl ApplicationHandler for App {
             _ => (),
         }
     }
+
+    fn about_to_wait(&mut self, event_loop : &ActiveEventLoop){
+        let mut horizontal = 0.0;
+        let mut vertical = 0.0;
+
+        if self.keyboard.is_pressed(KeyCode::ArrowRight){
+            horizontal += 1.0;
+        }
+        
+        if self.keyboard.is_pressed(KeyCode::ArrowLeft){
+            horizontal -= 1.0;
+        }
+        
+        if self.keyboard.is_pressed(KeyCode::ArrowUp){
+            vertical += 1.0;
+        }
+        
+        if self.keyboard.is_pressed(KeyCode::ArrowDown){
+            vertical -= 1.0;
+        }
+
+        if self.dragging || (horizontal == 0.0 && vertical == 0.0) {
+            self.last_keyboard_update = None;
+            event_loop.set_control_flow(ControlFlow::Wait);
+            return;
+        }
+
+        let now = Instant::now();
+
+        // start the clock on the first instant of now...
+        let mut last_update = self.last_keyboard_update.unwrap_or(now);
+        let elapsed = now.duration_since(last_update);
+
+        if elapsed >= KEYBOARD_INTERVAL {
+            let seconds = elapsed.min(MAX_KEYBOARD_ELAPSED).as_secs_f64();
+            let distance = KEYBOARD_SPEED * seconds;
+
+            if self.move_with_keyboard(horizontal * distance, vertical * distance){
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+            }
+            last_update = now;
+        }
+
+        self.last_keyboard_update = Some(last_update);
+        event_loop.set_control_flow(ControlFlow::WaitUntil(last_update + KEYBOARD_INTERVAL));
+    }
 }
 
+// this is for the bounds of the rectangle
+// if it goes out of bounds then we can stop it 
+// and use maths to render it better
+impl App {
+    fn move_with_keyboard(&mut self, dx : f64, dy : f64) -> bool{
+        let Some(window) = &self.window else {
+            return false;
+        };
 
+        let size = window.inner_size();
 
+        let max_x = f64::from(size.width) - RECT_WIDTH as f64;
+        let max_y = f64::from(size.height) - RECT_HEIGHT as f64;
+        
+        // either no dragging or the free range of the rectangle 
+        // isnt good enough...
+        if self.dragging || max_x < 0.0 || max_y < 0.0 {
+            return false;
+        }
 
+        let x = (RECT_START_X + self.rect_offset_x + dx).clamp(0.0, max_x);
+        let y = (RECT_START_Y + self.rect_offset_y + dy).clamp(0.0, max_y);
+        
+        let offset_x = x - RECT_START_X;
+        let offset_y = y - RECT_START_Y;
+
+        let moved = offset_x != self.rect_offset_x || offset_y != self.rect_offset_y;
+        self.rect_offset_x = offset_x;
+        self.rect_offset_y = offset_y;
+
+        moved
+    }
+}
 
 
 

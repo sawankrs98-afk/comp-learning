@@ -1,0 +1,12 @@
+/home/kuro/dummy-comp/comp-design/target/debug/build/drm-ffi/c2878180f2e24eba/out/drm_ffi-c2878180f2e24eba.d: /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/lib.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/utils.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/gem.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/ioctl.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/mode.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/syncobj.rs
+
+/home/kuro/dummy-comp/comp-design/target/debug/build/drm-ffi/c2878180f2e24eba/out/libdrm_ffi-c2878180f2e24eba.rlib: /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/lib.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/utils.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/gem.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/ioctl.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/mode.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/syncobj.rs
+
+/home/kuro/dummy-comp/comp-design/target/debug/build/drm-ffi/c2878180f2e24eba/out/libdrm_ffi-c2878180f2e24eba.rmeta: /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/lib.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/utils.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/gem.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/ioctl.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/mode.rs /home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/syncobj.rs
+
+/home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/lib.rs:
+/home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/utils.rs:
+/home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/gem.rs:
+/home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/ioctl.rs:
+/home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/mode.rs:
+/home/kuro/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/drm-ffi-0.9.1/src/syncobj.rs:

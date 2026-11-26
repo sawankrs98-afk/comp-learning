@@ -34,11 +34,6 @@ impl PointerButtons {
 }
 
 impl Pointer {
-    // creates a pointer at the initial position (0,0)...
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     // now we need to update the pointer position
     // some other event handlers see the mouse moving and give its current location
     // we will intercept them

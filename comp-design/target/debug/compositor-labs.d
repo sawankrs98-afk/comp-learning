@@ -1,0 +1,1 @@
+/home/kuro/dummy-comp/comp-design/target/debug/compositor-labs: /home/kuro/dummy-comp/comp-design/src/keyboard.rs /home/kuro/dummy-comp/comp-design/src/main.rs /home/kuro/dummy-comp/comp-design/src/pointer.rs /home/kuro/dummy-comp/comp-design/src/render.rs /home/kuro/dummy-comp/comp-design/src/window.rs
